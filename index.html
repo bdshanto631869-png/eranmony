@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Admin Panel (Fixed)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body{font-family:'Hind Siliguri', sans-serif; padding:20px; background:#eef2f5; max-width:900px; margin:0 auto;}
+        .card{background:white; padding:25px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.05); margin-bottom:20px; border: 2px solid #3498db;}
+        h2, h3{margin-top:0; color:#2c3e50;}
+        label{font-weight:600; font-size:14px; color:#555; display:block; margin-top:10px;}
+        input, textarea{width:100%; padding:12px; margin:5px 0 15px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; font-family:inherit;}
+        textarea{height:100px; resize:vertical;}
+        button{padding:12px 20px; border:none; border-radius:6px; cursor:pointer; color:white; font-weight:bold; transition:0.3s;}
+        .btn-save{background:#27ae60;} .btn-save:hover{background:#219150;}
+        .btn-upload{background:#2980b9;} .btn-upload:hover{background:#1c5985;}
+        .btn-restore{background:#8e44ad; width:100%;}
+        .video-item{display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding:10px 0;}
+        .video-item img{width:60px; height:40px; object-fit:cover; border-radius:4px;}
+        .action-buttons button{margin-left:5px; padding:5px 10px; font-size:12px;}
+        .btn-edit{background:#f39c12;} .btn-del{background:#c0392b;}
+        .section-title{border-bottom:2px solid #f0f0f0; padding-bottom:10px; margin-bottom:20px;}
+    </style>
+</head>
+<body>
+
+    <h2 style="text-align:center; color:#2c3e50;">অ্যাডমিন প্যানেল (ফিক্সড)</h2>
+
+    <div class="card">
+        <h3 class="section-title">📢 বিজ্ঞাপন (Ads) সেটিংস</h3>
+        <label>🎭 গ্লোবাল স্ক্রিপ্ট (Popunder, Social Bar, Meta Tags):</label>
+        <textarea id="headScripts" placeholder="এখানে পপঅন্ডার, সোশ্যাল বার বা ভেরিফিকেশন কোড দিন..."></textarea>
+        
+        <label>🖼️ ভিডিওর মাঝখানের অ্যাড (Native/Banner Ads):</label>
+        <textarea id="adCode" placeholder="এখানে ব্যানার বা নেটিভ অ্যাডের HTML/Script কোড দিন..."></textarea>
+        
+        <label>🔄 কতগুলো ভিডিওর পর পর অ্যাড দেখাবে?</label>
+        <input type="number" id="adFreq" placeholder="যেমন: 4" value="4">
+        
+        <button class="btn-save" onclick="saveAdSettings()">অ্যাড সেটিংস সেভ করুন</button>
+    </div>
+
+    <div class="card">
+        <h3 class="section-title">🔒 পপআপ বাটন লিংক (Login/Signup/Cancel)</h3>
+        <label>🟢 "লগইন করুন" বাটনের লিংক:</label>
+        <input type="text" id="loginLink" placeholder="https://example.com/login">
+
+        <label>🔵 "সাইন আপ করুন" বাটনের লিংক:</label>
+        <input type="text" id="signupLink" placeholder="https://example.com/signup">
+        
+        <label>🔴 "বাতিল" বাটন বা অন্য ক্লিকের লিংক (Target Link):</label>
+        <input type="text" id="targetLink" placeholder="https://example.com/offer">
+        
+        <button class="btn-save" style="background:#3498db;" onclick="saveLinkSettings()">লিংক সেভ করুন</button>
+    </div>
+
+    <div class="card">
+        <h3 class="section-title" id="formTitle">🎬 ভিডিও ম্যানেজমেন্ট</h3>
+        <input type="hidden" id="editKey">
+        
+        <input type="text" id="v_title" placeholder="ভিডিও টাইটেল (আবশ্যিক)">
+        <input type="text" id="v_thumb" placeholder="থাম্বনেইল লিংক (আবশ্যিক)">
+        <input type="text" id="v_gif" placeholder="GIF লিংক (অপশনাল)">
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="v_duration" placeholder="সময় (যেমন: 10:20)">
+            <input type="text" id="v_views" placeholder="ভিউ (যেমন: 2M)">
+        </div>
+        <input type="text" id="v_time" placeholder="আপলোড সময় (যেমন: 1 hour ago)">
+        
+        <button id="btnSubmit" class="btn-upload" onclick="handleVideoSubmit()">ভিডিও পোস্ট করুন</button>
+        <button id="btnCancel" style="background:#95a5a6; display:none; margin-top:10px;" onclick="cancelEdit()">বাতিল করুন</button>
+    </div>
+
+    <div class="card">
+        <h3 class="section-title">⚡ ডাটাবেস রিসেট</h3>
+        <button class="btn-restore" onclick="restoreDefaultVideos()">সব ডিফল্ট ভিডিও লোড করুন</button>
+    </div>
+
+    <div class="card">
+        <h3>📋 সকল ভিডিও</h3>
+        <div id="videoList">লোড হচ্ছে...</div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // 🔥 আপনার কনফিগারেশন
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY15dg5BAsgWgLf7u2liQs4pFngZxz4",
+            authDomain: "newtaskbot.firebaseapp.com",
+            projectId: "newtaskbot",
+            storageBucket: "newtaskbot.firebasestorage.app",
+            messagingSenderId: "367409983642",
+            appId: "1:367409983642:web:1d46dc2e03b892aca8af23",
+            databaseURL: "https://newtaskbot-default-rtdb.firebaseio.com"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ১. সেটিংস লোড করা
+        db.ref('siteConfig').on('value', (snap) => {
+            const config = snap.val();
+            if(config) {
+                if(config.headScripts) document.getElementById('headScripts').value = config.headScripts;
+                if(config.adCode) document.getElementById('adCode').value = config.adCode;
+                if(config.adFreq) document.getElementById('adFreq').value = config.adFreq;
+                if(config.targetLink) document.getElementById('targetLink').value = config.targetLink;
+                if(config.loginLink) document.getElementById('loginLink').value = config.loginLink;
+                if(config.signupLink) document.getElementById('signupLink').value = config.signupLink;
+            }
+        });
+
+        function saveAdSettings() {
+            db.ref('siteConfig').update({
+                headScripts: document.getElementById('headScripts').value,
+                adCode: document.getElementById('adCode').value,
+                adFreq: document.getElementById('adFreq').value
+            }).then(() => alert('✅ বিজ্ঞাপন সেটিংস আপডেট হয়েছে!'));
+        }
+
+        function saveLinkSettings() {
+            db.ref('siteConfig').update({
+                targetLink: document.getElementById('targetLink').value,
+                loginLink: document.getElementById('loginLink').value,
+                signupLink: document.getElementById('signupLink').value
+            }).then(() => alert('✅ সকল লিংক আপডেট হয়েছে!'));
+        }
+
+        // ২. ভিডিও সাবমিট বা আপডেট (ফিক্সড)
+        function handleVideoSubmit() {
+            const key = document.getElementById('editKey').value;
+            
+            // ডাটা সংগ্রহ
+            const title = document.getElementById('v_title').value;
+            const thumbnail = document.getElementById('v_thumb').value;
+            const gif = document.getElementById('v_gif').value || "";
+            const duration = document.getElementById('v_duration').value || "00:00";
+            const views = document.getElementById('v_views').value || "0";
+            const time = document.getElementById('v_time').value || "Just now";
+
+            // ভ্যালিডেশন
+            if(!title || !thumbnail) {
+                return alert("❌ টাইটেল এবং থাম্বনেইল লিংক অবশ্যই দিতে হবে!");
+            }
+
+            const data = { title, thumbnail, gif, duration, views, time, timestamp: Date.now() };
+
+            if(key) {
+                // আপডেট
+                const updateData = {...data};
+                delete updateData.timestamp; 
+                db.ref('videos').child(key).update(updateData).then(() => { 
+                    alert('✅ ভিডিও আপডেট সফল!'); 
+                    cancelEdit(); 
+                }).catch(err => alert("Error: " + err.message));
+            } else {
+                // নতুন পোস্ট
+                db.ref('videos').push(data).then(() => { 
+                    alert('✅ নতুন ভিডিও পোস্ট হয়েছে!'); 
+                    cancelEdit(); 
+                }).catch(err => alert("Error: " + err.message));
+            }
+        }
+
+        // ৩. ভিডিও লিস্ট দেখানো
+        db.ref('videos').orderByChild('timestamp').on('value', (snap) => {
+            const list = document.getElementById('videoList');
+            list.innerHTML = "";
+            let html = "";
+            let videoArray = [];
+
+            snap.forEach(child => {
+                const val = child.val();
+                if(val && val.title) { // শুধু সঠিক ভিডিওগুলোই দেখাবে
+                    videoArray.push({key: child.key, ...val});
+                }
+            });
+            videoArray.reverse();
+
+            if(videoArray.length === 0) {
+                list.innerHTML = "কোনো ভিডিও নেই।";
+                return;
+            }
+
+            videoArray.forEach(v => {
+                const cleanData = JSON.stringify(v).replace(/"/g, '&quot;');
+                
+                html += `
+                <div class="video-item">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <img src="${v.thumbnail}" onerror="this.src='https://via.placeholder.com/60'">
+                        <div><b>${v.title}</b><br><small>${v.views} • ${v.time}</small></div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-edit" onclick="editVideo('${cleanData}')">Edit</button>
+                        <button class="btn-del" onclick="deleteVideo('${v.key}')">Del</button>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html;
+        });
+
+        // এডিট মোড চালু করা
+        function editVideo(jsonString) {
+            const data = JSON.parse(jsonString);
+            
+            document.getElementById('editKey').value = data.key;
+            document.getElementById('v_title').value = data.title;
+            document.getElementById('v_thumb').value = data.thumbnail;
+            document.getElementById('v_gif').value = data.gif || '';
+            document.getElementById('v_duration').value = data.duration;
+            document.getElementById('v_views').value = data.views;
+            document.getElementById('v_time').value = data.time;
+            
+            document.getElementById('formTitle').innerText = "✏️ ভিডিও এডিট করুন";
+            document.getElementById('btnSubmit').innerText = "আপডেট করুন";
+            document.getElementById('btnSubmit').style.background = "#f39c12";
+            document.getElementById('btnCancel').style.display = "inline-block";
+            
+            window.scrollTo(0, 300);
+        }
+
+        function cancelEdit() {
+            document.getElementById('editKey').value = "";
+            document.getElementById('v_title').value = "";
+            document.getElementById('v_thumb').value = "";
+            document.getElementById('v_gif').value = "";
+            document.getElementById('v_duration').value = "";
+            document.getElementById('v_views').value = "";
+            document.getElementById('v_time').value = "";
+
+            document.getElementById('formTitle').innerText = "🎬 ভিডিও ম্যানেজমেন্ট";
+            document.getElementById('btnSubmit').innerText = "ভিডিও পোস্ট করুন";
+            document.getElementById('btnSubmit').style.background = "#2980b9";
+            document.getElementById('btnCancel').style.display = "none";
+        }
+
+        function deleteVideo(key) {
+            if(confirm('আপনি কি নিশ্চিত এই ভিডিওটি ডিলিট করবেন?')) {
+                db.ref('videos').child(key).remove();
+            }
+        }
+
+        const defaultVideosData = [
+          { title: "Viral Video 1", duration: "10:00", views: "1M", time: "1 hour ago", thumbnail: "https://via.placeholder.com/300" },
+          { title: "Viral Video 2", duration: "05:30", views: "500K", time: "2 hours ago", thumbnail: "https://via.placeholder.com/300" }
+        ];
+
+        function restoreDefaultVideos() {
+            if(!confirm('সতর্কতা: এটি ডাটাবেসে ডেমো ভিডিও যুক্ত করবে। আপনি কি রাজি?')) return;
+            defaultVideosData.forEach((v, i) => {
+                db.ref('videos').push({...v, timestamp: Date.now() - (i * 1000)});
+            });
+            alert('✅ ডেমো ভিডিও যুক্ত হয়েছে!');
+        }
+    </script>
+</body>
+</html>
